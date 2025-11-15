@@ -84,14 +84,22 @@ def supabase_update_remocao(cliente_id):
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
         "Content-Type": "application/json",
-        "Prefer": "return=minimal"
+        "Prefer": "return=representation"
     }
     payload = {
         "telegram_connected": False,
         "telegram_removed_at": datetime.utcnow().isoformat(),
-        "carteiras": ["Leads"]
+        "carteiras": ["Leads"]   # Supabase aceita array JSON aqui
     }
-    requests.patch(url, headers=headers, json=payload)
+
+    r = requests.patch(url, headers=headers, json=payload)
+
+    # 🔍 LOG para verificar se o update realmente ocorreu
+    try:
+        print("UPDATE REMOÇÃO SUPABASE →", r.status_code, r.text)
+    except:
+        pass
+
 
 
 def supabase_get_vencidos():

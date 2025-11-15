@@ -193,7 +193,7 @@ def processar_vencidos():
             continue
 
         expulsar_de_todos_os_grupos(cli)
-        supabase_update_remocao(cli)
+        supabase_update_remocao(cli.get("id"))
         avisar_cliente_removido(cli)
 
         processados += 1

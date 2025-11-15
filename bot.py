@@ -83,7 +83,7 @@ def supabase_update_remocao(cliente_id):
     payload = {
         "telegram_connected": False,
         "telegram_removed_at": datetime.utcnow().isoformat(),
-        "carteiras": ["Leads"]
+        "carteiras": "{Leads}"
     }
 
     try:

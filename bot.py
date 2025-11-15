@@ -1,6 +1,5 @@
 import os
 import time
-import threading
 import requests
 from datetime import datetime
 
@@ -14,7 +13,6 @@ SUPABASE_KEY   = os.getenv("SUPABASE_KEY")     # configure no Render
 if not TELEGRAM_TOKEN or not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("⚠️ TELEGRAM_TOKEN, SUPABASE_URL ou SUPABASE_KEY não configurados no ambiente.")
 
-
 # ============================================================
 # LINKS REAIS PARA ENTRAR NOS GRUPOS (invites)
 # ============================================================
@@ -24,7 +22,6 @@ LINKS_TELEGRAM = {
     "Opções": "https://t.me/+1si_16NC5E8xNDhk",
     "Criptomoedas": "https://t.me/+-08kGaN0ZMsyNjJk",
 }
-
 
 # ============================================================
 # IDS REAIS DOS GRUPOS (para expulsar)
@@ -36,15 +33,12 @@ GRUPOS = {
     "Criptomoedas":      -1002947159530,
 }
 
-
 BASE_API = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 
-
 # ============================================================
-# FUNÇÕES DE SUPABASE
+# FUNÇÕES DO SUPABASE
 # ============================================================
 def supabase_get_client(cliente_id):
-    """Busca cliente no Supabase pelo ID"""
     url = f"{SUPABASE_URL}/rest/v1/clientes?id=eq.{cliente_id}"
     headers = {
         "apikey": SUPABASE_KEY,
@@ -59,7 +53,6 @@ def supabase_get_client(cliente_id):
 
 
 def supabase_update_telegram_info(cliente_id, user):
-    """Atualiza dados do Telegram ao validar acesso"""
     url = f"{SUPABASE_URL}/rest/v1/clientes?id=eq.{cliente_id}"
     headers = {
         "apikey": SUPABASE_KEY,
@@ -78,8 +71,7 @@ def supabase_update_telegram_info(cliente_id, user):
 
 
 def supabase_update_remocao(cliente_id):
-    """Atualiza cliente como removido"""
-    print("UPDATE_REMOVER → iniciando para cliente_id:", cliente_id)
+    print(f"UPDATE_REMOVER → iniciando para cliente_id {cliente_id}")
 
     url = f"{SUPABASE_URL}/rest/v1/clientes?id=eq.{cliente_id}"
     headers = {
@@ -96,17 +88,13 @@ def supabase_update_remocao(cliente_id):
 
     try:
         r = requests.patch(url, headers=headers, json=payload)
-        print("UPDATE_REMOVER → status:", r.status_code)
-        print("UPDATE_REMOVER → resposta:", r.text)
+        print("UPDATE_REMOVER → Status:", r.status_code)
+        print("UPDATE_REMOVER → Resposta:", r.text)
     except Exception as e:
-        print("UPDATE_REMOVER → ERRO na requisição:", e)
-        raise
-
-
+        print("UPDATE_REMOVER → ERRO:", e)
 
 
 def supabase_get_vencidos():
-    """Busca clientes com assinatura vencida e telegram_connected = true"""
     hoje = datetime.utcnow().date().isoformat()
     url = (
         f"{SUPABASE_URL}/rest/v1/clientes"
@@ -116,15 +104,15 @@ def supabase_get_vencidos():
         "apikey": SUPABASE_KEY,
         "Authorization": f"Bearer {SUPABASE_KEY}",
     }
+    r = requests.get(url, headers=headers)
     try:
-        r = requests.get(url, headers=headers)
         return r.json()
     except:
         return []
 
 
 # ============================================================
-# FUNÇÕES TELEGRAM
+# TELEGRAM
 # ============================================================
 def tg_get_updates(offset=None):
     url = BASE_API + "/getUpdates"
@@ -144,6 +132,7 @@ def tg_send_message(chat_id, text, reply_markup=None):
     }
     if reply_markup:
         payload["reply_markup"] = reply_markup
+
     try:
         requests.post(BASE_API + "/sendMessage", json=payload)
     except:
@@ -159,7 +148,7 @@ def tg_kick_user(group_id, user_id):
 
 
 # ============================================================
-# REMOÇÃO DOS GRUPOS + AVISO
+# REMOÇÃO DE GRUPOS + AVISO
 # ============================================================
 def expulsar_de_todos_os_grupos(cliente):
     user_id = cliente.get("telegram_id")
@@ -194,30 +183,30 @@ def avisar_cliente_removido(cliente):
 
 def processar_vencidos():
     clientes = supabase_get_vencidos()
-    print("PROCESSAR_VENCIDOS → clientes encontrados:", len(clientes))
+    print("[PROCESSAR_VENCIDOS] encontrados:", len(clientes))
     processados = 0
 
     for cli in clientes:
-        print("PROCESSAR_VENCIDOS → avaliando cliente:", cli.get("id"), cli.get("nome"))
-        carteiras = cli.get("carteiras", [])
+        cid = cli.get("id")
+        print(" → Avaliando cliente:", cid, cli.get("nome"))
 
-        # Já é lead → pular
-        if carteiras == ["Leads"]:
-            print("PROCESSAR_VENCIDOS → cliente já é Leads, pulando:", cli.get("id"))
+        # Já é Lead → pular
+        if cli.get("carteiras") == ["Leads"]:
+            print(" → Já é Leads, pulando.")
             continue
 
         expulsar_de_todos_os_grupos(cli)
-        supabase_update_remocao(cli.get("id"))
+        supabase_update_remocao(cid)
         avisar_cliente_removido(cli)
 
         processados += 1
 
-    print("PROCESSAR_VENCIDOS → processados:", processados)
+    print("[PROCESSAR_VENCIDOS] total processados:", processados)
     return processados
 
 
 # ============================================================
-# PROCESSAMENTO DO /start
+# PROCESSAMENTO /start
 # ============================================================
 def process_start(message):
     chat_id = message["chat"]["id"]
@@ -256,7 +245,7 @@ def process_start(message):
 
 
 # ============================================================
-# PROCESSAMENTO DE CALLBACK
+# CALLBACKS
 # ============================================================
 def process_callback(callback):
     data = callback.get("data", "")
@@ -276,7 +265,6 @@ def process_callback(callback):
     nome = cliente["nome"]
     carteiras = cliente["carteiras"]
 
-    # Atualiza Supabase com telegram_id, username, connected=True
     supabase_update_telegram_info(cliente_id, user)
 
     resposta = [f"🎉 <b>Acesso Validado, {nome}!</b>\n"]
@@ -292,33 +280,19 @@ def process_callback(callback):
 
 
 # ============================================================
-# ROTINA AUTOMÁTICA DE REMOÇÃO
-# ============================================================
-def rotina_vencidos():
-    while True:
-        try:
-            qtd = processar_vencidos()
-            if qtd > 0:
-                print(f"🔥 Remoções automáticas executadas: {qtd}")
-        except Exception as e:
-            print("Erro rotina vencidos:", e)
-
-        time.sleep(300)  # 5 minutos
-
-
-# ============================================================
-# LOOP PRINCIPAL DO BOT
+# LOOP PRINCIPAL — AGORA TAMBÉM PROCESSA VENCIDOS!
 # ============================================================
 def main():
     print("🤖 Bot do Telegram rodando no Render…")
 
-    # inicia thread da verificação de vencidos
-    threading.Thread(target=rotina_vencidos, daemon=True).start()
-
     last_update = None
+    ultimo_check = time.time()
 
     while True:
         try:
+            # =======================
+            # → PROCESSAR UPDATES
+            # =======================
             updates = tg_get_updates(last_update)
 
             if "result" in updates:
@@ -331,6 +305,16 @@ def main():
 
                     if "callback_query" in u:
                         process_callback(u["callback_query"])
+
+            # =======================
+            # → PROCESSAR VENCIDOS 5/5 minutos
+            # =======================
+            if time.time() - ultimo_check >= 300:
+                print("\n========================================")
+                print("   EXECUTANDO ROTINA DE VENCIDOS (5 min)")
+                print("========================================")
+                processar_vencidos()
+                ultimo_check = time.time()
 
         except Exception as e:
             print("Erro no loop principal:", e)

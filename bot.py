@@ -79,6 +79,8 @@ def supabase_update_telegram_info(cliente_id, user):
 
 def supabase_update_remocao(cliente_id):
     """Atualiza cliente como removido"""
+    print("UPDATE_REMOVER → iniciando para cliente_id:", cliente_id)
+
     url = f"{SUPABASE_URL}/rest/v1/clientes?id=eq.{cliente_id}"
     headers = {
         "apikey": SUPABASE_KEY,
@@ -89,16 +91,17 @@ def supabase_update_remocao(cliente_id):
     payload = {
         "telegram_connected": False,
         "telegram_removed_at": datetime.utcnow().isoformat(),
-        "carteiras": ["Leads"]   # Supabase aceita array JSON aqui
+        "carteiras": ["Leads"]
     }
 
-    r = requests.patch(url, headers=headers, json=payload)
-
-    # 🔍 LOG para verificar se o update realmente ocorreu
     try:
-        print("UPDATE REMOÇÃO SUPABASE →", r.status_code, r.text)
-    except:
-        pass
+        r = requests.patch(url, headers=headers, json=payload)
+        print("UPDATE_REMOVER → status:", r.status_code)
+        print("UPDATE_REMOVER → resposta:", r.text)
+    except Exception as e:
+        print("UPDATE_REMOVER → ERRO na requisição:", e)
+        raise
+
 
 
 
@@ -191,13 +194,16 @@ def avisar_cliente_removido(cliente):
 
 def processar_vencidos():
     clientes = supabase_get_vencidos()
+    print("PROCESSAR_VENCIDOS → clientes encontrados:", len(clientes))
     processados = 0
 
     for cli in clientes:
+        print("PROCESSAR_VENCIDOS → avaliando cliente:", cli.get("id"), cli.get("nome"))
         carteiras = cli.get("carteiras", [])
 
         # Já é lead → pular
         if carteiras == ["Leads"]:
+            print("PROCESSAR_VENCIDOS → cliente já é Leads, pulando:", cli.get("id"))
             continue
 
         expulsar_de_todos_os_grupos(cli)
@@ -206,6 +212,7 @@ def processar_vencidos():
 
         processados += 1
 
+    print("PROCESSAR_VENCIDOS → processados:", processados)
     return processados
 
 
